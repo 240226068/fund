@@ -242,6 +242,7 @@
         let curve;
         let curveObject;
         {
+            //这些点是干嘛的？
             const controlPoints = [
                 [1.118281, 5.115846, -3.681386],
                 [3.948875, 5.115846, -3.641834],
@@ -267,19 +268,32 @@
             ];
             const p0 = new THREE.Vector3();
             const p1 = new THREE.Vector3();
+            //深度递归数组，合成一个数组
+            //CatmullRomCurve3(点数组，是否闭合曲线)
             curve = new THREE.CatmullRomCurve3(
                 controlPoints.map((p, ndx) => {
+                    //第一个点
+                    //将点位数组赋予p0
                     p0.set(...p);
+                    //下一个点
+                    //可以形成一个闭环的对应关系，挺机智的操作
                     p1.set(...controlPoints[(ndx + 1) % controlPoints.length]);
+
+                    let p2=(new THREE.Vector3()).lerpVectors(p0, p1, 0.1);
+                    let p3=(new THREE.Vector3()).lerpVectors(p0, p1, 0.9);
+
+                    //以后再看看点位
+
                     return [
                         (new THREE.Vector3()).copy(p0),
                         //lerpVectors 差值计算
-                        (new THREE.Vector3()).lerpVectors(p0, p1, 0.1),
-                        (new THREE.Vector3()).lerpVectors(p0, p1, 0.9),
+                        p2,
+                        p3,
                     ];
                 }).flat(),
                 true,
             );
+
             {
                 const points = curve.getPoints(250);
                 const geometry = new THREE.BufferGeometry().setFromPoints(points);
@@ -287,7 +301,7 @@
                 curveObject = new THREE.Line(geometry, material);
                 curveObject.scale.set(100, 100, 100);
                 curveObject.position.y = -621;
-                curveObject.visible = false;
+                curveObject.visible = true;
                 scene.add(curveObject);
             }
         }
@@ -295,6 +309,7 @@
 
         const cars = [];
         {
+            //载入gltf模型
             const gltfLoader = new THREE.GLTFLoader();
             gltfLoader.load('https://threejsfundamentals.org/threejs/resources/models/cartoon_lowpoly_small_city_free_pack/scene.gltf', (gltf) => {
                 const root = gltf.scene;
@@ -317,6 +332,7 @@
                 root.updateMatrixWorld();
                 for (const car of loadedCars.children.slice()) {
                     const fix = fixes.find(fix => car.name.startsWith(fix.prefix));
+                    //重置汽车高度和方向
                     const obj = new THREE.Object3D();
                     car.position.set(0, fix.y, 0);
                     car.rotation.set(...fix.rot);
@@ -327,15 +343,24 @@
 
                 // compute the box that contains all the stuff
                 // from root and below
+                // 获取场景的边界盒子
                 const box = new THREE.Box3().setFromObject(root);
-
+                //boxSize 盒子的对角线长度
+                //根据盒子的(长，宽，高)，获取从(0, 0, 0) 到 (x, y, z)的欧几里得长度
                 const boxSize = box.getSize(new THREE.Vector3()).length();
+                console.log('boxSize',box.getSize(new THREE.Vector3()));
+                console.log('boxSize',boxSize);
+
+                //盒子中心点
                 const boxCenter = box.getCenter(new THREE.Vector3());
 
                 // set the camera to frame the box
+                //使相机覆盖盒子
+                //boxSize 的一半就是盒子中心到顶点的距离
                 frameArea(boxSize * 0.5, boxSize, boxCenter, camera);
 
                 // update the Trackball controls to handle the new size
+                // 更新轨迹球控件以处理新尺寸
                 controls.maxDistance = boxSize * 10;
                 controls.target.copy(boxCenter);
                 controls.update();
@@ -358,7 +383,7 @@
         const carTarget = new THREE.Vector3();
 
         function render(time) {
-            // console.log(time);
+            console.log('time',time);
             time *= 0.001;  // convert to seconds
 
             if (resizeRendererToDisplaySize(renderer)) {
@@ -373,6 +398,7 @@
                 cars.forEach((car, ndx) => {
                     // a number between 0 and 1 to evenly space the cars
                     const u = pathTime + ndx / cars.length;
+                    //console.log(u);
 
                     // get the first point
                     curve.getPointAt(u % 1, carPosition);
@@ -388,6 +414,7 @@
                     car.lookAt(carTarget);
 
                     // put the car between the 2 points
+                    //依靠当前对象和目标点点差值运动
                     car.position.lerpVectors(carPosition, carTarget, 0.5);
                 });
             }
