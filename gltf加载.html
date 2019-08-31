@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>obj加载</title>
+    <title>gltf加载</title>
     <style>
         html, body {
             margin: 0;
@@ -17,10 +17,10 @@
 </head>
 <body>
 <canvas id="c"></canvas>
-<script src="https://threejsfundamentals.org/threejs/resources/threejs/r105/three.min.js"></script>
-<script src="https://threejsfundamentals.org/threejs/resources/threejs/r105/js/controls/OrbitControls.js"></script>
-<script src="https://threejsfundamentals.org/threejs/resources/threejs/r105/js/loaders/GLTFLoader.js"></script>
-<script src="https://threejsfundamentals.org/threejs/../3rdparty/dat.gui.min.js"></script>
+<script src="./lib/three.min.js"></script>
+<script src="./lib/OrbitControls.js"></script>
+<script src="./lib/GLTFLoader.js"></script>
+<script src="./lib/dat.gui.min.js"></script>
 <script>
     function main() {
         const canvas = document.querySelector('#c');
@@ -70,7 +70,7 @@
             const light = new THREE.HemisphereLight(skyColor, groundColor, intensity);
             scene.add(light);
         }
-        //平行光和相机
+        //平行光
         {
             const color = 0xFFFFFF;
             const intensity = 1;
@@ -320,7 +320,7 @@
                 scene.add(curveObject);
 
                 boxes.scale.set(100, 100, 100);
-                boxes.position.y = -621;
+                boxes.position.y = -621;[]
                 scene.add(boxes);
 
             }
@@ -408,6 +408,7 @@
         
         console.log(curveObject.matrixWorld);
         function render(time) {
+            //17*= 0.001=0.017
             time *= 0.001;  // convert to seconds
 
             if (resizeRendererToDisplaySize(renderer)) {
@@ -418,8 +419,10 @@
 
             {
                 //时间与移动距离成比例
+                //0.017* .01=0.0017
+                //会影响前进幅度
                 const pathTime = time * .01;
-
+                //这是一个偏移值，目标点位的偏移值
                 const targetOffset = 0.01;
                 cars.forEach((car, ndx) => {
                     // a number between 0 and 1 to evenly space the cars
@@ -431,13 +434,16 @@
                         console.log('u%1',u% 1);
                     }*/
                     // get the first point
-                    //根据比例位获取点位
+                    //根据比例位获取点位,并赋予carPosition
+                    //对于大于0 的变量，1的余数永远在0-1之间
                     curve.getPointAt(u % 1, carPosition);
                     //应用曲线的世界矩阵
                     carPosition.applyMatrix4(curveObject.matrixWorld);
 
                     // get a second point slightly further down the curve
+                    //偏移一下，根据比例位获取点位,并赋予carPosition
                     curve.getPointAt((u + targetOffset) % 1, carTarget);
+                    //应用曲线的世界矩阵
                     carTarget.applyMatrix4(curveObject.matrixWorld);
 
                     // put the car at the first point (temporarily)
@@ -445,7 +451,7 @@
                     // point the car the second point
                     car.lookAt(carTarget);
 
-                    // put the car between the 2 points
+                    //put the car between the 2 points
                     //依靠当前对象和目标点点差值运动
                     car.position.lerpVectors(carPosition, carTarget, 0.5);
                 });
