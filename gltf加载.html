@@ -241,6 +241,7 @@
 
         let curve;
         let curveObject;
+        let boxes=new THREE.Group();
         {
             //这些点是干嘛的？
             const controlPoints = [
@@ -268,8 +269,10 @@
             ];
             const p0 = new THREE.Vector3();
             const p1 = new THREE.Vector3();
+
             //深度递归数组，合成一个数组
             //CatmullRomCurve3(点数组，是否闭合曲线)
+            //这建立的是一种概念上的平滑曲线
             curve = new THREE.CatmullRomCurve3(
                 controlPoints.map((p, ndx) => {
                     //第一个点
@@ -283,19 +286,31 @@
                     let p3=(new THREE.Vector3()).lerpVectors(p0, p1, 0.9);
 
                     //以后再看看点位
-
+                    boxes.add(crtBox(p0.x,p0.z,0xffff00));
+                    boxes.add(crtBox(p2.x,p2.z,0xff00ff));
+                    boxes.add(crtBox(p3.x,p3.z,0x00ffff));
                     return [
-                        (new THREE.Vector3()).copy(p0),
+                        //(new THREE.Vector3()).copy(p0),
                         //lerpVectors 差值计算
                         p2,
                         p3,
                     ];
                 }).flat(),
                 true,
+                // 'catmullrom',
+                // 0.1
+
             );
 
             {
-                const points = curve.getPoints(250);
+                //curve.tension=0.1;
+                // const points = curve.getPoints(250);
+                //获取曲线的细分点
+                const points = curve.getPoints(50);
+                points.forEach((ele)=>{
+                    boxes.add(crtBox(ele.x,ele.z,0x000000,.08));
+                })
+                //以点画线
                 const geometry = new THREE.BufferGeometry().setFromPoints(points);
                 const material = new THREE.LineBasicMaterial({color: 0xff0000});
                 curveObject = new THREE.Line(geometry, material);
@@ -303,7 +318,20 @@
                 curveObject.position.y = -621;
                 curveObject.visible = true;
                 scene.add(curveObject);
+
+                boxes.scale.set(100, 100, 100);
+                boxes.position.y = -621;
+                scene.add(boxes);
+
             }
+        }
+
+        function crtBox(x,z,color,size=.1){
+            const geometry =new THREE.BoxBufferGeometry(size,size,size);
+            const material = new THREE.MeshBasicMaterial( {color: color} );
+            const cube = new THREE.Mesh( geometry, material );
+            cube.position.set(x,5.115846,z);
+            return cube;
         }
 
 
@@ -329,7 +357,8 @@
                     { prefix: 'Car_04', y: 40, rot: [0, Math.PI, 0], },
                 ];
 
-                root.updateMatrixWorld();
+                // root.updateMatrixWorld();
+                //建立汽车群
                 for (const car of loadedCars.children.slice()) {
                     const fix = fixes.find(fix => car.name.startsWith(fix.prefix));
                     //重置汽车高度和方向
@@ -348,17 +377,12 @@
                 //boxSize 盒子的对角线长度
                 //根据盒子的(长，宽，高)，获取从(0, 0, 0) 到 (x, y, z)的欧几里得长度
                 const boxSize = box.getSize(new THREE.Vector3()).length();
-                console.log('boxSize',box.getSize(new THREE.Vector3()));
-                console.log('boxSize',boxSize);
-
                 //盒子中心点
                 const boxCenter = box.getCenter(new THREE.Vector3());
-
                 // set the camera to frame the box
                 //使相机覆盖盒子
                 //boxSize 的一半就是盒子中心到顶点的距离
                 frameArea(boxSize * 0.5, boxSize, boxCenter, camera);
-
                 // update the Trackball controls to handle the new size
                 // 更新轨迹球控件以处理新尺寸
                 controls.maxDistance = boxSize * 10;
@@ -366,7 +390,7 @@
                 controls.update();
             });
         }
-
+        //自适应窗口
         function resizeRendererToDisplaySize(renderer) {
             const canvas = renderer.domElement;
             const width = canvas.clientWidth;
@@ -381,9 +405,9 @@
         // create 2 Vector3s we can use for path calculations
         const carPosition = new THREE.Vector3();
         const carTarget = new THREE.Vector3();
-
+        
+        console.log(curveObject.matrixWorld);
         function render(time) {
-            console.log('time',time);
             time *= 0.001;  // convert to seconds
 
             if (resizeRendererToDisplaySize(renderer)) {
@@ -393,15 +417,23 @@
             }
 
             {
+                //时间与移动距离成比例
                 const pathTime = time * .01;
+
                 const targetOffset = 0.01;
                 cars.forEach((car, ndx) => {
                     // a number between 0 and 1 to evenly space the cars
+                    //这是一个再计时器的基础上不断增长的数
+                    //ndx / cars.length 根据ndx 确立一个点位比
                     const u = pathTime + ndx / cars.length;
-                    //console.log(u);
 
+                    /*if(ndx===5){
+                        console.log('u%1',u% 1);
+                    }*/
                     // get the first point
+                    //根据比例位获取点位
                     curve.getPointAt(u % 1, carPosition);
+                    //应用曲线的世界矩阵
                     carPosition.applyMatrix4(curveObject.matrixWorld);
 
                     // get a second point slightly further down the curve
