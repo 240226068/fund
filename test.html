@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<script>
+    /*function F(){}
+    Object.prototype.a=1;
+    Function.prototype.b=2;
+    var f=new F();
+    console.log(f.a);
+    console.log(f.b);*/
+    let [x,y,...z]=['a'];
+    console.log(z);
+    function * numbers(){
+        yield 1;
+        yield 2;
+        return  3;
+        yield 4;
+    }
+    let arr=[...numbers()];
+    console.log(arr.length);
+    const map=new Map(['e',35]);
+    console.log(map.get('e'));
+</script>
+</body>
+</html>
