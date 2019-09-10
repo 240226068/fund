@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--<meta http-equiv="cache-control" content="no-cache">-->
+<head>
+    <meta charset="UTF-8">
+    <title>gif</title>
+    <style>
+        canvas{
+            padding: 0;
+            margin: 0;
+            line-height: 0;
+            background: #6a4924;
+        }
+    </style>
+</head>
+<body>
+
+
+<div>
+    <canvas id="canvas" width="300" height="212"></canvas>
+</div>
+<script src="./lib/libgif.js"></script>
+<script src="./lib/rubbable.js"></script>
+<script>
+    const canvas=document.getElementById('canvas');
+    const ctx=canvas.getContext('2d');
+    const src='./assets/images/girl.gif';
+    const [w,h]=[150,133];
+    const GifTool={
+        drawGif:({src,w,h,draw})=>{
+            const gif=new Image(w,h);
+            gif.setAttribute('data-animated_src',src);
+            const sup = new SuperGif({
+                gif,
+                change:()=>{
+                    const canvas=sup.get_canvas();
+                    const curCtx=canvas.getContext("2d");
+                    const imgData=curCtx.getImageData(0,0,w,h);
+                    draw({imgData,canvas});
+                }
+            });
+            sup.load();
+        }
+    }
+    ctx.save();
+    /*GifTool.drawGif({
+        src,w,h,
+        draw:({canvas})=>{
+            var pat=ctx.createPattern(canvas,"repeat");
+            ctx.save();
+            ctx.translate(10,0);
+            ctx.beginPath();
+            ctx.arc(60,80,60,0,Math.PI*2);
+            ctx.fillStyle=pat;
+            ctx.fill();
+            ctx.restore();
+
+            ctx.save();
+            ctx.translate(150,40);
+            ctx.beginPath();
+            ctx.arc(60,80,60,0,Math.PI*2);
+            ctx.fillStyle=pat;
+            ctx.fill();
+            ctx.restore();
+        }
+    });*/
+
+    GifTool.drawGif({
+        src,w,h,
+        draw:({imgData})=>{
+            ctx.putImageData(imgData,0,0);
+        }
+    });
+</script>
+</body>
+</html>

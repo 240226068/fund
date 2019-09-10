@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--<meta http-equiv="cache-control" content="no-cache">-->
+<head>
+    <meta charset="UTF-8">
+    <title>gif</title>
+    <style>
+        canvas{
+            padding: 0;
+            margin: 0;
+            line-height: 0;
+        }
+    </style>
+</head>
+<body>
+<button id="btn">btn</button>
+<!--<img id="img" src="./assets/images/zao.gif">-->
+<canvas id="c" width="300" height="212"></canvas>
+<script src="./lib/libgif.js"></script>
+<script src="./lib/rubbable.js"></script>
+<script>
+    let img=document.getElementById("img");
+    let c=document.getElementById("c");
+
+    let xhr=new XMLHttpRequest();
+    //(method, url, async, username, password)
+    // https://xhr.spec.whatwg.org/#the-open()-method
+    xhr.open('get','./assets/images/girl.gif');
+    //xhr.open('get','https://yxyy-img.oss-cn-shanghai.aliyuncs.com/favicon.ico');
+    xhr.setRequestHeader("Content-Type", "text/plain");
+    xhr.send('请求体');
+    xhr.onreadystatechange=function(){
+        //readyState 客户的状态
+        // https://xhr.spec.whatwg.org/#states
+        // 4 传输已完成
+        if(xhr.readyState===4){
+            //响应状态
+            //400 前端请求响应成功
+            if(xhr.status===200){
+                console.log('xhr',xhr);
+                console.log('statusText',xhr.statusText);
+                //console.log('responseText',xhr.responseText);
+                console.log('responseText',xhr.response);
+            }
+        }
+    }
+
+</script>
+</body>
+</html>

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>相机适屛显示物体</title>
+    <style>
+        html, body {margin: 0;height: 100%;}
+        #c {width: 100%;height: 100%;display: block;}
+    </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script src="./lib/three.min.js"></script>
+<script src="./lib/OrbitControls.js"></script>
+<script src="./lib/dat.gui.min.js"></script>
+<script>
+    const canvas = document.querySelector('#c');
+    let viewW = canvas.clientWidth;
+    let viewH = canvas.clientHeight;
+    const renderer = new THREE.WebGLRenderer({canvas});
+    renderer.setSize(viewW, viewH, false);
+    const fov = 45;
+    const aspect = viewW / viewH;
+    const near = 0.01;
+    const far = 10;
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+    camera.position.set(1, 0,4);
+
+    camera.updateProjectionMatrix();
+    const controls = new THREE.OrbitControls(camera, canvas);
+    const scene = new THREE.Scene();
+    let mesh;
+    let objW=.6;
+    let objH=.8;
+    let objD=4;
+    {
+        const geometry =new THREE.BoxBufferGeometry(objW,objH,objD);
+        const material = new THREE.MeshBasicMaterial( {
+            color: 0xffffff ,
+            wireframe:true
+        } );
+        mesh = new THREE.Mesh( geometry, material );
+        mesh.rotateY(Math.PI/6);
+        scene.add(mesh);
+    }
+    let boxCenter;
+    {
+        const box = new THREE.Box3().setFromObject(mesh);
+        boxCenter = box.getCenter(new THREE.Vector3());
+        frameArea();
+    }
+    {
+        const axesHelper = new THREE.AxesHelper( 5 );
+        scene.add( axesHelper );
+    }
+    {
+
+        
+        //遍历mesh点，获取其距离视点最近的点
+        let fg=new THREE.Geometry().fromBufferGeometry(mesh.geometry.clone().applyMatrix(mesh.matrix));
+        let md=null;
+        let mv=null;
+        fg.vertices.forEach((ele,ind)=>{
+            const v=new THREE.Vector3(ele.x,ele.y,ele.z);
+            const d=camera.position.distanceTo(v);
+            if(md==null||d<md){
+                md=d;
+                mv=v;
+            }
+        })
+
+        //建立辅助平面
+        let fp=new THREE.Plane(camera.position.clone().sub(boxCenter).normalize());
+        fp.translate(mv);
+        //视线在平面上的投射点
+        let pcp=new THREE.Vector3();
+        pcp=fp.projectPoint(camera.position,pcp);
+
+        //先获取最近的点
+        const geometry = new THREE.PlaneGeometry(2,2,2,2);
+        geometry.lookAt(camera.position);
+        geometry.translate(pcp.x,pcp.y,pcp.z);
+        const material = new THREE.MeshBasicMaterial( {color: 0x555555, wireframe: true} );
+        const plane = new THREE.Mesh( geometry, material );
+        scene.add( plane );
+
+
+        //获取mesh 在平面上的投射点
+        let fp2=new THREE.Plane(fp.normal);
+        fp2.translate(pcp);
+        let pvs=[];
+        fg.vertices.forEach((ele,ind)=>{
+            const mp=new THREE.Vector3(ele.x,ele.y,ele.z);
+            const ray=new THREE.Ray(camera.position);
+            ray.lookAt(mp);
+            const p=ray.intersectPlane(fp2,new THREE.Vector3());
+            pvs.push(p.x);
+            pvs.push(p.y);
+            pvs.push(p.z);
+        })
+        const bf=new THREE.BufferAttribute( new Float32Array(pvs), 3 );
+        //显示投射点
+        const geoP = new THREE.BufferGeometry();
+        geoP.addAttribute('position',bf);
+        const matP = new THREE.LineBasicMaterial( { color: 0xcccc00 } );
+        const meshP = new THREE.Line( geoP, matP );
+        scene.add(meshP);
+
+        //视线
+        const el=camera.position.clone().sub(boxCenter).normalize();
+        //建立一个与世界坐标系对齐的网格，方便计算宽高
+        const geoP2 =new THREE.Geometry().fromBufferGeometry(geoP.clone());
+        const matP2 = new THREE.LineBasicMaterial( { color: 0xcccc00 } );
+        const meshP2 = new THREE.Line( geoP2, matP2 );
+        scene.add(meshP2);
+
+        //中心线
+        let vs=geometry.vertices;
+        let [v1,v2,v3,v4,v5,v6,v7]=[vs[1],vs[2],vs[3],vs[4],vs[5],vs[6],vs[7]];
+        let [vc1,vc2,vc3,vc4,vc5,vc6,vc7]=[
+            new THREE.Vector3(v1.x,v1.y,v1.z),
+            new THREE.Vector3(v2.x,v2.y,v2.z),
+            new THREE.Vector3(v3.x,v3.y,v3.z),
+            new THREE.Vector3(v4.x,v4.y,v4.z),
+            new THREE.Vector3(v5.x,v5.y,v5.z),
+            new THREE.Vector3(v6.x,v6.y,v6.z),
+            new THREE.Vector3(v7.x,v7.y,v7.z),
+        ];
+        //横轴法线
+        const nv=vc1.clone().sub(vc4).normalize();
+        //竖轴法线
+        const nh=vc5.clone().sub(vc4).normalize();
+        //竖轴射线
+        const rv=new THREE.Ray(vc7,nv);
+        //横轴射线
+        const rh=new THREE.Ray(vc3,nh);
+        console.log('nv',nv);
+        console.log(nv.dot(vc2.clone().sub(vc4).normalize()));
+        console.log(nv.dot(vc6.clone().sub(vc4).normalize()));
+        console.log('distanceToPoint',rh.distanceToPoint(vc1));
+        console.log('distanceTo',Math.floor(vc4.distanceTo(vc1)*10000)/10000);
+        //获取边界值
+        const bound={
+            t:null,b:null,l:null,r:null,
+            tp:null,bp:null,lp:null,rp:null,
+            w:0,h:0,
+            center:new THREE.Vector3()
+        }
+        geoP2.vertices.forEach((ele)=>{
+            const v=new THREE.Vector3(ele.x,ele.y,ele.z);
+            //正右负左
+            const dotV=nv.dot(v.clone().sub(vc4).normalize());
+            //正上负下
+            const dotH=nh.dot(v.clone().sub(vc4).normalize());
+            //上下距
+            const tb=rh.distanceToPoint(v);
+            //左右距
+            const lr=rv.distanceToPoint(v);
+            //边界计算
+            if(dotH>0){
+                if(bound.r===null||bound.r<lr){
+                    bound.r=lr;
+                    bound.rp=ele;
+                }
+            }else{
+                if(bound.l===null||bound.l>-lr){
+                    bound.l=-lr;
+                    bound.lp=ele;
+                }
+            }
+            //上下距
+            if(dotV>0){
+                if(bound.t===null||bound.t<tb){
+                    bound.t=tb;
+                    bound.tp=ele;
+                }
+            }else{
+                if(bound.b===null||bound.b>-tb){
+                    bound.b=-tb;
+                    bound.bp=ele;
+                }
+            }
+        })
+        bound.w=bound.r-bound.l;
+        bound.h=bound.t-bound.b;
+
+        const rv2=new THREE.Ray(vc4.clone(),nv);
+        rv2.recast(bound.t);
+        const rh2=new THREE.Ray(vc4.clone(),nh);
+        rh2.origin.copy(rv2.origin.clone());
+        rh2.recast(bound.r);
+
+        const geoL2 = new THREE.Geometry();
+        geoL2.vertices=[
+            rv2.origin,rh2.origin,
+        ]
+        const matL2 = new THREE.LineBasicMaterial( { color: 0x00cc00 } );
+        const meshL2 = new THREE.Line( geoL2, matL2 );
+        scene.add(meshL2);
+
+        /*const ofx=(bound.r+bound.l)/2;
+        const ofy=(bound.t+bound.b)/2;
+        //竖轴射线
+        console.log('rv2.origin');
+        const rv2=rv.clone();
+        console.log('bound.r',bound.r);
+        console.log('bound.l',bound.l);
+        console.log('ofx',ofx);
+        rv2.recast(ofy);
+        console.log(rv2.origin);
+        //横轴射线
+        const rh2=rh.clone();
+        rh2.origin.copy(rv2.origin);
+        rh2.recast(ofx);*/
+        
+
+
+        //绘制点对象
+        const g2 = new THREE.Geometry();
+        g2.vertices=[
+            vc4,vc1,vc5,
+            bound.tp,bound.bp,bound.lp,bound.rp,
+
+        ];
+        g2.colors=[
+            new THREE.Color(0xcccccc),new THREE.Color(0x00ffff),new THREE.Color(0xff00ff),
+            new THREE.Color(0xf0ff0f),new THREE.Color(0xf0ff0f),new THREE.Color(0xf0ff0f),new THREE.Color(0xf0ff0f),
+
+        ]
+        const m2=new THREE.PointsMaterial( {size:.06,vertexColors: THREE.VertexColors,} );
+
+
+        const ps=new THREE.Points(g2,m2);
+        scene.add(ps);
+
+    }
+    render();
+    {
+        const cmst={
+            tog:true
+        }
+        const gui = new dat.GUI();
+        const ipt={
+            btn:()=>{
+                if(cmst.tog){
+                    cmst.b=camera.position.clone();
+                    //console.log(camera.position.distanceTo(camera.target));
+                    camera.position.set(0,0,-cmst.b.distanceTo(boxCenter));
+                    camera.lookAt(boxCenter);
+                }else{
+                    
+                    console.log(cmst.b);
+                    camera.position.copy(cmst.b);
+                    camera.lookAt(boxCenter);
+                    
+                }
+                cmst.tog=!cmst.tog;
+                render();
+                console.log('btn');
+            }
+        }
+        gui.add(ipt, 'btn');
+    }
+
+
+
+    window.onresize=function () {
+        viewW = canvas.clientWidth;
+        viewH = canvas.clientHeight;
+        renderer.setSize(viewW, viewH, false);
+        camera.aspect = viewW / viewH;
+        camera.updateProjectionMatrix();
+        frameArea();
+        render();
+    }
+    function render() {
+        renderer.render(scene, camera);
+    }
+    function frameArea() {
+        let h=viewW/viewH>objW/objH?objH/2:objW/2*viewH/viewW;
+        const halfFovY = THREE.Math.degToRad(camera.fov * .5);
+        const d = h / Math.tan(halfFovY);
+        const direction = (new THREE.Vector3())
+            .subVectors(camera.position, boxCenter)
+            .normalize();
+        //camera.position.copy(direction.multiplyScalar(d).add(boxCenter));
+        camera.lookAt(boxCenter.x, boxCenter.y, boxCenter.z);
+    }
+    controls.addEventListener('change',function(){
+        render();
+    })
+</script>
+</body>
+</html>

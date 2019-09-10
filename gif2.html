@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--<meta http-equiv="cache-control" content="no-cache">-->
+<head>
+    <meta charset="UTF-8">
+    <title>gif</title>
+    <style>
+        canvas{
+            padding: 0;
+            margin: 0;
+            line-height: 0;
+
+        }
+    </style>
+</head>
+<body>
+<div>
+    <img id="img1"
+         src="./assets/images/girl.gif"
+         data-auto_play="1"
+         data-rubbable="1"
+    >
+</div>
+<div>
+    <img id="img2"
+         src="./assets/images/girl.jpg"
+         data-animated_src="./assets/images/zao.gif"
+         data-auto_play="0"
+    />
+</div>
+<div>
+    <a href="javascript:;" onmousedown="sup2.pause(); return false;">Pause</a> |
+    <a href="javascript:;" onmousedown="sup2.play(); return false;">Play</a> |
+    <a href="javascript:;" onmousedown="sup2.move_to(0); return false;">Restart</a> |
+    <a href="javascript:;" onmousedown="nextFrame()">Step forward</a> |
+    <a href="javascript:;" onmousedown="sup2.move_relative(-1); return false;">Step back</a>
+</div>
+<div>
+    <canvas id="canvas" width="300" height="212"></canvas>
+</div>
+
+<script src="./lib/libgif.js"></script>
+<script src="./lib/rubbable.js"></script>
+<script>
+    let img1=document.getElementById("img1");
+    let gif=document.getElementById("img2");
+    let canvas=document.getElementById('canvas');
+    let ctx=canvas.getContext('2d');
+    let sup1 = new RubbableGif({ gif: img1 });
+    sup1.load();
+
+    let sup2 = new SuperGif({ gif,on_end,change} );
+
+    
+    //当gif 加载成功后
+    sup2.load(function(){
+        console.log('load');
+    });
+    function change(){
+        showGif();
+    }
+
+    //当gif到达单个循环结束时
+    function on_end() {
+        console.log('on_end');
+    }
+    function nextFrame(){
+        sup2.move_relative(1);
+        return false;
+    }
+    
+    function showGif(){
+        let curCtx=sup2.get_canvas().getContext("2d");
+        let imgData1=curCtx.getImageData(0,0,300,212);
+        let dtArr=[];
+        imgData1.data.forEach((ele,ind)=>{
+            /*if (ind%4===2){
+                dtArr[ind]=255-ele;
+            } else{
+                dtArr[ind]=ele;
+            }*/
+            if (ind%4!=3){
+                dtArr[ind]=255-ele;
+            }else{
+                dtArr[ind]=ele;
+            }
+        })
+        //imgData.putImageData();
+        let imgData2=new ImageData(new Uint8ClampedArray(dtArr),300,212);
+        ctx.putImageData(imgData2,0,0);
+    }
+
+</script>
+</body>
+</html>
