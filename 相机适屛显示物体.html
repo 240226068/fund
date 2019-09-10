@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>相机适屛显示物体</title>
+    <style>
+        html, body {margin: 0;height: 100%;}
+        #c {width: 100%;height: 100%;display: block;}
+    </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script src="./lib/three.min.js"></script>
+<script src="./lib/OrbitControls.js"></script>
+<script>
+    const canvas = document.querySelector('#c');
+    let viewW = canvas.clientWidth;
+    let viewH = canvas.clientHeight;
+    const renderer = new THREE.WebGLRenderer({canvas});
+    renderer.setSize(viewW, viewH, false);
+    const fov = 45;
+    const aspect = viewW / viewH;
+    const near = 0.01;
+    const far = 10;
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+    camera.position.set(0, 0, 2);
+    camera.updateProjectionMatrix();
+    const controls = new THREE.OrbitControls(camera, canvas);
+    const scene = new THREE.Scene();
+    let mesh;
+    let objW=.6;
+    let objH=.8;
+    {
+        const geometry =new THREE.PlaneBufferGeometry(objW,objH);
+        const material = new THREE.MeshBasicMaterial( {
+            color: 0xcccccc,
+            wireframe:true
+        } );
+        mesh = new THREE.Mesh( geometry, material );
+        scene.add(mesh);
+    }
+    let boxCenter;
+    {
+        const box = new THREE.Box3().setFromObject(mesh);
+        boxCenter = box.getCenter(new THREE.Vector3());
+        frameArea();
+    }
+    render();
+    window.onresize=function () {
+        viewW = canvas.clientWidth;
+        viewH = canvas.clientHeight;
+        renderer.setSize(viewW, viewH, false);
+        camera.aspect = viewW / viewH;
+        camera.updateProjectionMatrix();
+        frameArea();
+        render();
+    }
+    function render() {
+        renderer.render(scene, camera);
+    }
+    function frameArea() {
+        let h=viewW/viewH>objW/objH?objH/2:objW/2*viewH/viewW;
+        const halfFovY = THREE.Math.degToRad(camera.fov * .5);
+        const d = h / Math.tan(halfFovY);
+        const direction = (new THREE.Vector3())
+            .subVectors(camera.position, boxCenter)
+            .normalize();
+        camera.position.copy(direction.multiplyScalar(d).add(boxCenter));
+        camera.lookAt(boxCenter.x, boxCenter.y, boxCenter.z);
+    }
+
+</script>
+</body>
+</html>
