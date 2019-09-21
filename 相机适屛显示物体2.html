@@ -24,7 +24,7 @@
     const near = 0.01;
     const far = 10;
     const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-    camera.position.set(1, 0,4);
+    camera.position.set(1, 2,1);
 
     camera.updateProjectionMatrix();
     const controls = new THREE.OrbitControls(camera, canvas);
@@ -54,8 +54,6 @@
         scene.add( axesHelper );
     }
     {
-
-        
         //遍历mesh点，获取其距离视点最近的点
         let fg=new THREE.Geometry().fromBufferGeometry(mesh.geometry.clone().applyMatrix(mesh.matrix));
         let md=null;
@@ -184,34 +182,55 @@
         bound.w=bound.r-bound.l;
         bound.h=bound.t-bound.b;
 
-        const rv2=new THREE.Ray(vc4.clone(),nv);
-        rv2.recast(bound.t);
-        const rh2=new THREE.Ray(vc4.clone(),nh);
-        rh2.origin.copy(rv2.origin.clone());
-        rh2.recast(bound.r);
+        //ot
+        const ot=new THREE.Ray(vc4.clone(),nv);
+        ot.recast(bound.t);
+        //tlr
+        const tlr=new THREE.Ray(ot.origin.clone(),nh);
+        //tr
+        const tr=tlr.clone().recast(bound.r);
+        //tl
+        const tl=tlr.clone().recast(bound.l);
 
+        //ob
+        const ob=new THREE.Ray(vc4.clone(),nv.clone());
+        ob.recast(bound.b);
+        //blr
+        const blr=new THREE.Ray(ob.origin.clone(),nh);
+        //br
+        const br=blr.clone().recast(bound.r);
+        //bl
+        const bl=blr.clone().recast(bound.l);
+
+        //绘线
         const geoL2 = new THREE.Geometry();
         geoL2.vertices=[
-            rv2.origin,rh2.origin,
+            tr.origin,tl.origin,bl.origin,br.origin,tr.origin
         ]
         const matL2 = new THREE.LineBasicMaterial( { color: 0x00cc00 } );
         const meshL2 = new THREE.Line( geoL2, matL2 );
         scene.add(meshL2);
 
-        /*const ofx=(bound.r+bound.l)/2;
-        const ofy=(bound.t+bound.b)/2;
-        //竖轴射线
-        console.log('rv2.origin');
-        const rv2=rv.clone();
-        console.log('bound.r',bound.r);
-        console.log('bound.l',bound.l);
-        console.log('ofx',ofx);
-        rv2.recast(ofy);
-        console.log(rv2.origin);
-        //横轴射线
-        const rh2=rh.clone();
-        rh2.origin.copy(rv2.origin);
-        rh2.recast(ofx);*/
+        //中心点
+        const newO=tr.origin.clone().lerp(bl.origin,0.5);
+        //求距离
+        /*const distance=camera.position.distanceTo(vc4);
+        const direction=(new THREE.Vector3()).subVectors(camera.position, boxCenter).normalize();;
+        camera.position.copy(direction.multiplyScalar(distance).add(newO));
+        camera.lookAt(newO);*/
+        //计算中心点偏移位
+        /*const offset=newO.clone().sub(boxCenter);
+        console.log('offset',offset);
+        camera.position.add(offset);
+        camera.lookAt(newO);
+        camera.updateProjectionMatrix();*/
+        /*controls.target.copy(newO);
+        controls.update();*/
+
+
+
+
+
         
 
 
@@ -220,12 +239,13 @@
         g2.vertices=[
             vc4,vc1,vc5,
             bound.tp,bound.bp,bound.lp,bound.rp,
+            newO
 
         ];
         g2.colors=[
             new THREE.Color(0xcccccc),new THREE.Color(0x00ffff),new THREE.Color(0xff00ff),
             new THREE.Color(0xf0ff0f),new THREE.Color(0xf0ff0f),new THREE.Color(0xf0ff0f),new THREE.Color(0xf0ff0f),
-
+            new THREE.Color(0x00cc00),
         ]
         const m2=new THREE.PointsMaterial( {size:.06,vertexColors: THREE.VertexColors,} );
 
@@ -276,8 +296,8 @@
     function render() {
         renderer.render(scene, camera);
     }
-    function frameArea() {
-        let h=viewW/viewH>objW/objH?objH/2:objW/2*viewH/viewW;
+    function frameArea(bdW,bdH) {
+        let h=viewW/viewH>bdW/objH?bdH/2:bdW/2*viewH/viewW;
         const halfFovY = THREE.Math.degToRad(camera.fov * .5);
         const d = h / Math.tan(halfFovY);
         const direction = (new THREE.Vector3())

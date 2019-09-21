@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>相机适屛显示物体</title>
+    <style>
+        html, body {margin: 0;height: 100%;}
+        #c {width: 100%;height: 100%;display: block;}
+    </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script src="./lib/three.min.js"></script>
+<script src="./lib/OrbitControls.js"></script>
+<script src="./lib/dat.gui.min.js"></script>
+<script>
+    const {
+        Scene,PerspectiveCamera,WebGLRenderer,Color,
+        Geometry,
+        AxesHelper,PlaneGeometry,PlaneBufferGeometry,SphereGeometry,BoxGeometry,CylinderGeometry,
+        BufferGeometry,CylinderBufferGeometry,BoxBufferGeometry,
+        BufferAttribute,
+        Sprite,
+        MeshBasicMaterial,MeshLambertMaterial,PointsMaterial,LineBasicMaterial,SpriteMaterial,MeshPhongMaterial,
+        Points,Mesh,Line,SkinnedMesh,
+        AmbientLight,SpotLight,PointLight,
+        Fog,
+        Vector3,Face3,
+        Group,
+        OrbitControls,
+        KeyframeTrack,AnimationClip,AnimationMixer,
+        Clock,
+        ObjectLoader,
+        Bone,Skeleton,SkeletonHelper,
+        Math:{degToRad},
+        Box3
+    }=THREE;
+    const canvas = document.querySelector('#c');
+    let viewW = canvas.clientWidth;
+    let viewH = canvas.clientHeight;
+    const renderer = new WebGLRenderer({canvas});
+    renderer.setSize(viewW, viewH, false);
+    const fov = 45;
+    const aspect = viewW / viewH;
+    const near = 0.01;
+    const far = 10;
+    const camera = new PerspectiveCamera(fov, aspect, near, far);
+    //camera.position.set(1, 0,0);
+    camera.position.set(0,0,1);
+
+    camera.updateProjectionMatrix();
+    const orbitCtrl = new OrbitControls(camera, canvas);
+    const scene = new Scene();
+    let mesh;
+    let objW=.6;
+    let objH=1;
+    let objD=4;
+    {
+        const geometry =new BoxBufferGeometry(objW,objH,objD);
+        const material = new MeshBasicMaterial( {
+            color: 0xffffff ,
+            wireframe:true
+        } );
+        mesh = new Mesh( geometry, material );
+        //mesh.rotateY(Math.PI/12);
+        scene.add(mesh);
+    }
+    class CameraControl{
+        constructor(camera,orbitCtrl,domEle){
+            this.camera=camera;
+            this.orbitCtrl=orbitCtrl;
+            this.domEle=domEle;
+        }
+        getCamAttr(box,pos=this.camera.position,fitView=false){
+            const diagonal = box.getSize(new Vector3()).length();
+            const target = box.getCenter(new Vector3());
+            const halfSizeToFitOnScreen = diagonal /2;
+            const halfFovY = degToRad(this.camera.fov/2);
+            let distance = halfSizeToFitOnScreen / Math.tan(halfFovY);
+            const {clientWidth,clientHeight}=this.domEle;
+            if(fitView&&clientWidth/clientHeight<1){distance*=clientHeight/clientWidth}
+            const direction = (new Vector3())
+                .subVectors(pos,target)
+                .normalize();
+            const  position=direction.clone().multiplyScalar(distance).add(target);
+            return {
+                position,
+                target,
+                direction
+            }
+        }
+        updateCamera(position,target,orbit=this.orbitCtrl,camera=this.camera){
+            camera.position.copy(position);
+            camera.updateProjectionMatrix();
+            const {x,y,z}=target;
+            camera.lookAt(x,y,z);
+            if(orbit){
+                orbit.target.set(x,y,z);
+                orbit.update();
+            }
+        }
+        getVisiableGeo(direction,mesh){
+            const bufGeo=mesh.geometry.clone().applyMatrix(mesh.matrix);
+            let geo=new Geometry().fromBufferGeometry(bufGeo);
+            geo.elementsNeedUpdate=true;
+            let set=new Set();
+            const vertices=geo.vertices;
+            geo.faces.forEach((ele)=>{
+                const dot=direction.clone().dot(ele.normal);
+                if(dot>0.1){
+                    const {a,b,c}=ele;
+                    set.add(ele.a);
+                    set.add(ele.b);
+                    set.add(ele.c);
+                }
+            })
+            const vn=[];
+            set.forEach((ele)=>{
+                vn.push(vertices[ele]);
+            })
+            geo=new Geometry();
+            geo.vertices=vn;
+            geo.computeBoundingBox();
+            return geo;
+        }
+        getResAttr(){
+            const box1 = new Box3().setFromObject(mesh);
+            const camAttr1=this.getCamAttr(box1);
+            const geo=this.getVisiableGeo(camAttr1.direction,mesh);
+            return this.getCamAttr(geo.boundingBox,camAttr1.position,true);
+        }
+    }
+    {
+        const  cameraControl=new CameraControl(camera,orbitCtrl,renderer.domElement);
+        const {position,target}=cameraControl.getResAttr();
+        cameraControl.updateCamera(position,target,orbitCtrl);
+    }
+
+    render();
+    window.onresize=function () {
+        viewW = canvas.clientWidth;
+        viewH = canvas.clientHeight;
+        renderer.setSize(viewW, viewH, false);
+        camera.aspect = viewW / viewH;
+        camera.updateProjectionMatrix();
+        render();
+    }
+    function render() {
+        renderer.render(scene, camera);
+    }
+
+    orbitCtrl.addEventListener('change',function(){
+        render();
+    })
+</script>
+</body>
+</html>

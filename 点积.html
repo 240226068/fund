@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>相机适屛显示物体</title>
+    <style>
+        html, body {margin: 0;height: 100%;}
+        p{margin: 0}
+        #c {width: 100%;height: 100%;display: block;}
+        #cont{
+            position: absolute;
+            top:24px;
+            left:24px;
+            color: aliceblue;
+            line-height: 24px;
+            font-size: 12px;
+        }
+        #sessions{margin-bottom: 32px}
+        .session{margin-bottom: 12px}
+        .ses-obj{font-weight: bold}
+        .ses-text{}
+        #attrs{
+            border: 1px solid #999;
+            padding: 9px;
+            width: 330px;
+            border-radius: 3px;
+        }
+        .attr>span:first-child{
+            display: inline-block;
+            width: 184px;
+        }
+    </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="cont">
+    <div id="sessions">
+        <div class="session">
+            <p class="ses-obj mesh">网格面对相机说：</p>
+            <p class="ses-text">
+                我转过身去，你就看不见我。（单面Mesh 的特性）<br>
+                因为我若不见，便不存在，不存在之物亦不可见我。（此言源自主观唯心，纯属扯淡哈）
+            </p>
+        </div>
+        <div class="session">
+            <p class="ses-obj camera">相机对网格面说：</p>
+            <p class="ses-text">
+                <span id="tip"></span>
+            </p>
+        </div>
+    </div>
+    <div id="attrs">
+        <p><b>相关属性</b></p>
+        <p class="attr">
+            <span>相机视线的向量 dirCam：</span>
+            <span  id="dirCam"></span>
+        </p>
+        <p class="attr">
+            <span>网格面的原始法向量 dirOrg：</span>
+            <span id="dirOrg"></span>
+        </p>
+        <p class="attr">
+            <span>网格面逆转置后的法向量 dirIntr：</span>
+            <span id="dirIntr"></span>
+        </p>
+        <p class="attr">
+            <span>dirOrg 和dirCam 的点积 dot：</span>
+            <span id="dot"></span>
+        </p>
+    </div>
+</div>
+<script src="./lib/three.min.js"></script>
+<script src="./lib/OrbitControls.js"></script>
+<script src="./lib/dat.gui.min.js"></script>
+<script>
+    const {
+        Scene,PerspectiveCamera,WebGLRenderer,Color,
+        Geometry,
+        AxesHelper,PlaneGeometry,PlaneBufferGeometry,SphereGeometry,BoxGeometry,CylinderGeometry,
+        BufferGeometry,CylinderBufferGeometry,BoxBufferGeometry,
+        BufferAttribute,
+        Sprite,
+        MeshBasicMaterial,MeshLambertMaterial,PointsMaterial,LineBasicMaterial,SpriteMaterial,MeshPhongMaterial,
+        Points,Mesh,Line,SkinnedMesh,
+        AmbientLight,SpotLight,PointLight,
+        Fog,
+        Vector3,Face3,
+        Group,
+        OrbitControls,
+        KeyframeTrack,AnimationClip,AnimationMixer,
+        Clock,
+        ObjectLoader,
+        Bone,Skeleton,SkeletonHelper,
+        Math:{degToRad},
+        Box3,
+        ArrowHelper
+    }=THREE;
+    const canvas = document.querySelector('#c');
+    let viewW = canvas.clientWidth;
+    let viewH = canvas.clientHeight;
+    const renderer = new WebGLRenderer({canvas});
+    renderer.setSize(viewW, viewH, false);
+    const fov = 45;
+    const aspect = viewW / viewH;
+    const near = 0.01;
+    const far = 10;
+    const camera = new PerspectiveCamera(fov, aspect, near, far);
+    camera.position.set(0,0,2);
+
+    camera.updateProjectionMatrix();
+    const orbitCtrl = new OrbitControls(camera, canvas);
+    const scene = new Scene();
+
+    //建立平面，获取法线，获取相机方向，计算点积
+    const geometry = new PlaneGeometry( .4,.6 );
+    const material = new MeshBasicMaterial( {color: 0xffff00} );
+    const plane = new Mesh( geometry, material );
+    scene.add( plane );
+
+    const materialF = new MeshBasicMaterial( {
+        color: 0xff0000,
+        wireframe:true,
+        depthTest: false,
+        depthWrite: false,
+    } );
+    const planeF = new Mesh( geometry, materialF );
+    scene.add( planeF );
+
+    let arrowHelper = null;
+
+
+    render();
+    orbitCtrl.addEventListener('change',function(){
+        render();
+    })
+
+
+
+
+    const tipDom=document.getElementById('tip');
+    const attrDoms=[];
+    ['dirCam','dirOrg','dirIntr','dot'].forEach((ele,ind)=>{
+        attrDoms[ind]=document.getElementById(ele);
+    })
+    checkVisible();
+    const gui=new dat.GUI();
+    ['x','y'].forEach((axis)=>{
+        gui.add(plane.rotation,axis,0,Math.PI*2).onChange((rad)=>{
+            planeF.rotation[axis]=rad;
+            render();
+            checkVisible();
+        })
+    })
+
+    function checkVisible(){
+        const camDir=camera.position.clone().sub(plane.position).normalize();
+        const dirOrg=geometry.faces[0].normal;
+        const dirIntr=dirOrg.clone().applyMatrix3(plane.normalMatrix);
+        const dot=camDir.dot(dirIntr);
+        updateArrow(dirIntr);
+        tipDom.innerHTML=dot>0?'孙贼，我看见你啦！':'咦，人哪？';
+        setAttr(camDir,dirOrg,dirIntr);
+        attrDoms[3].innerHTML=dot.toFixed(2);
+
+    }
+    function setAttr(...rest){
+        rest.forEach((ele,ind)=>{
+            const {x,y,z}=ele;
+            attrDoms[ind].innerHTML=`
+            x: ${x.toFixed(2)} ,
+            y: ${y.toFixed(2)} ,
+            z: ${z.toFixed(2)}`;
+        })
+    }
+    function updateArrow(dirIntr){
+        if(!arrowHelper){
+            arrowHelper=new ArrowHelper(dirIntr,new Vector3(0,0,0),.4,0xff0000);
+            scene.add( arrowHelper );
+            render();
+        }else{
+            arrowHelper.setDirection(dirIntr);
+        }
+
+    }
+
+    
+    window.onresize=function () {
+        viewW = canvas.clientWidth;
+        viewH = canvas.clientHeight;
+        renderer.setSize(viewW, viewH, false);
+        camera.aspect = viewW / viewH;
+        camera.updateProjectionMatrix();
+        render();
+    }
+
+
+    function render() {
+        renderer.render(scene, camera);
+    }
+
+    
+</script>
+</body>
+</html>
