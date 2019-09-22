@@ -45,21 +45,38 @@
     const fov = 45;
     const aspect = viewW / viewH;
     const near = 0.01;
-    const far = 10;
+    const far = 100;
     const camera = new PerspectiveCamera(fov, aspect, near, far);
-    camera.position.set(0,0,2);
+    camera.position.set(0,0,6);
 
     camera.updateProjectionMatrix();
     const orbitCtrl = new OrbitControls(camera, canvas);
     const scene = new Scene();
 
+    const axesHelper=new AxesHelper(5);
+    scene.add(axesHelper);
+
+    const a=new Vector3(-1,-1,0);
+    const b=new Vector3(1,-1,0);
+    const c=new Vector3(0,1,0);
+    const vertices = new Float32Array( [
+        a.x,a.y,a.z,
+        b.x,b.y,b.z,
+        c.x,c.y,c.z,
+    ] );
     //建立平面，获取法线，获取相机方向，计算点积
-    const geometry = new PlaneGeometry( .4,.6 );
+    const geometry = new BufferGeometry();
+    geometry.addAttribute( 'position', new BufferAttribute( vertices, 3 ) );
     const material = new MeshBasicMaterial( {color: 0xffff00} );
     const plane = new Mesh( geometry, material );
     scene.add( plane );
 
-
+    const cb = new Vector3(), ab = new Vector3();
+    cb.subVectors( c, b );
+    ab.subVectors( a, b );
+    cb.cross( ab );
+    cb.normalize();
+    console.log('cb',cb);
 
 
     render();
