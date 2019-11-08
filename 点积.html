@@ -22,7 +22,7 @@
         #attrs{
             border: 1px solid #999;
             padding: 9px;
-            width: 330px;
+            width: 360px;
             border-radius: 3px;
         }
         .attr>span:first-child{
@@ -183,7 +183,7 @@
 
     }
 
-    
+
     window.onresize=function () {
         viewW = canvas.clientWidth;
         viewH = canvas.clientHeight;
@@ -191,14 +191,14 @@
         camera.aspect = viewW / viewH;
         camera.updateProjectionMatrix();
         render();
-    }
+    };
 
 
     function render() {
         renderer.render(scene, camera);
     }
 
-    
+
 </script>
 </body>
 </html>

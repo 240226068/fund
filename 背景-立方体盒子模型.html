@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>背景</title>
+    <style>
+        html, body {margin: 0;height: 100%;}
+        #c {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script src="./lib/three.min.js"></script>
+<script src="./lib/OrbitControls.js"></script>
+<script src="./lib/dat.gui.min.js"></script>
+<script>
+    const {
+        Scene,PerspectiveCamera,WebGLRenderer,Color,
+        Geometry,
+        AxesHelper,PlaneGeometry,PlaneBufferGeometry,SphereGeometry,BoxGeometry,CylinderGeometry,
+        BufferGeometry,CylinderBufferGeometry,BoxBufferGeometry,
+        BufferAttribute,
+        Sprite,
+        MeshBasicMaterial,MeshLambertMaterial,PointsMaterial,LineBasicMaterial,SpriteMaterial,MeshPhongMaterial,
+        Points,Mesh,Line,SkinnedMesh,
+        AmbientLight,SpotLight,PointLight,
+        Fog,
+        Vector3,Face3,
+        Group,
+        OrbitControls,
+        KeyframeTrack,AnimationClip,AnimationMixer,
+        Clock,
+        ObjectLoader,
+        Bone,Skeleton,SkeletonHelper,
+        Math:{degToRad},
+        Box3,
+        TextureLoader,CubeTextureLoader,
+        ShaderLib,
+        LinearFilter,
+        ShaderMaterial,
+        BackSide,
+    }=THREE;
+
+    const canvas = document.querySelector('#c');
+    let viewW = canvas.clientWidth;
+    let viewH = canvas.clientHeight;
+    const renderer = new WebGLRenderer({canvas,alpha:true});
+    renderer.autoClearColor = false;
+    renderer.setSize(viewW, viewH, false);
+    const fov = 45;
+    const aspect = viewW / viewH;
+    const near = 0.01;
+    const far = 10;
+    const camera = new PerspectiveCamera(fov, aspect, near, far);
+    camera.position.set(0,0,2);
+    camera.updateProjectionMatrix();
+    const orbitCtrl = new OrbitControls(camera, canvas);
+    const scene = new Scene();
+
+    const bgScene = new Scene();
+    let bgMesh;
+    {
+        const loader = new TextureLoader();
+        const texture = loader.load(
+            'https://threejsfundamentals.org/threejs/resources/images/equirectangularmaps/tears_of_steel_bridge_2k.jpg',
+            function () {
+                render();
+            }
+        );
+        texture.magFilter = LinearFilter;
+        texture.minFilter = LinearFilter;
+
+        const shader = ShaderLib.equirect;
+        const material = new ShaderMaterial({
+            fragmentShader: shader.fragmentShader,
+            vertexShader: shader.vertexShader,
+            uniforms: shader.uniforms,
+            depthWrite: false,
+            side: BackSide,
+        });
+        material.uniforms.tEquirect.value = texture;
+        const plane = new BoxBufferGeometry(2, 2, 2);
+        bgMesh = new Mesh(plane, material);
+        bgScene.add(bgMesh);
+    }
+
+    {
+        const color = 0xFFFFFF;
+        const intensity = 1;
+        const light = new THREE.DirectionalLight(color, intensity);
+        light.position.set(-1, 2, 4);
+        scene.add(light);
+    }
+
+    let mesh;
+    let objW=.3;
+    let objH=.4;
+    let objD=.5;
+    {
+        const geometry =new BoxBufferGeometry(objW,objH,objD);
+        const material = new MeshPhongMaterial( {
+            color: 0xdddddd,
+        } );
+        mesh = new Mesh( geometry, material );
+        scene.add(mesh);
+    }
+
+    render();
+    window.onresize=function () {
+        viewW = canvas.clientWidth;
+        viewH = canvas.clientHeight;
+        renderer.setSize(viewW, viewH, false);
+        camera.aspect = viewW / viewH;
+        camera.updateProjectionMatrix();
+        render();
+    };
+    function render() {
+        bgMesh.position.copy(camera.position);
+        renderer.render(bgScene, camera);
+        renderer.render(scene, camera);
+    }
+
+    orbitCtrl.addEventListener('change',function(){
+        render();
+    })
+</script>
+</body>
+</html>

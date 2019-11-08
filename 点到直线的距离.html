@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>点到直线的距离</title>
+    <style>
+        html, body {margin: 0;height: 100%;}
+        #rec {width: 100%;height: 100%;}
+        #canvas{background: bisque}
+        #cont{
+            position: absolute;
+            top: 24px;
+            left: 24px;
+        }
+    </style>
+</head>
+<body>
+<div id="rec">
+    <canvas id="canvas"></canvas>
+</div>
+<div id="cont">
+        点到线的距离：<span id="tip"></span>
+</div>
+<script>
+const rec=document.getElementById('rec');
+const canvas=document.getElementById('canvas');
+const tip=document.getElementById('tip');
+let {clientWidth,clientHeight}=rec;
+canvas.width=clientWidth;
+canvas.height=clientHeight;
+const ctx=canvas.getContext('2d');
+
+class Ball{
+    constructor(width,height){
+        this.width=width;
+        this.height=height;
+        this.x=0;
+        this.y=0;
+    }
+    draw(ctx){
+        ctx.beginPath();
+        ctx.strokeStyle='#dd9169';
+        ctx.arc(this.x,this.y,40,0,Math.PI*2);
+        ctx.closePath();
+        ctx.stroke();
+    }
+}
+class Line{
+    constructor(x1,y1,x2,y2){
+        this.x1=x1;
+        this.y1=y1;
+        this.x2=x2;
+        this.y2=y2;
+    }
+    draw(ctx){
+        ctx.beginPath();
+        ctx.strokeStyle='#3a6335';
+        ctx.moveTo(this.x1,this.y1);
+        ctx.lineTo(this.x2,this.y2);
+        ctx.stroke();
+    }
+}
+
+
+const ball=new Ball(1,2,3);
+ball.draw(ctx);
+const line=new Line(200,200,400,400);
+line.draw(ctx);
+
+canvas.addEventListener('mousemove',mousemoveFn,true);
+function mousemoveFn(event){
+    event.stopPropagation();
+    ctx.clearRect(0,0,clientWidth,clientHeight);
+    const {clientX,clientY}=event;
+    ball.x=clientX;
+    ball.y=clientY;
+    ball.draw(ctx);
+    line.draw(ctx);
+    const dist=distanceOfPoint2Line(clientX,clientY,line.x1, line.y1, line.x2, line.y2);
+    tip.innerText=dist;
+
+}
+
+function distanceOfPoint2Line(x, y, x1, y1, x2, y2) {
+    let A = x - x1;
+    let B = y - y1;
+    let C = x2 - x1;
+    let D = y2 - y1;
+    let dot = A * C + B * D;
+    let len_sq = C * C + D * D;
+    let param = -1;
+    if (len_sq != 0){
+        param = dot / len_sq;
+    }
+
+    let xx, yy;
+
+    if (param < 0) {
+        xx = x1;
+        yy = y1;
+    }
+    else if (param > 1) {
+        xx = x2;
+        yy = y2;
+    }
+    else {
+        xx = x1 + param * C;
+        yy = y1 + param * D;
+    }
+
+    let dx = x - xx;
+    let dy = y - yy;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+</script>
+</body>
+</html>
