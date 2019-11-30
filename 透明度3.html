@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>透明度3</title>
+    <style>
+        html, body {margin: 0;height: 100%;}
+        #c {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script src="./build/three.js"></script>
+<script src="./lib/OrbitControls.js"></script>
+<script src="./lib/dat.gui.min.js"></script>
+<script>
+    const {
+        Scene,PerspectiveCamera,WebGLRenderer,Color,
+        Geometry,
+        AxesHelper,PlaneGeometry,PlaneBufferGeometry,SphereGeometry,BoxGeometry,CylinderGeometry,
+        BufferGeometry,CylinderBufferGeometry,BoxBufferGeometry,
+        BufferAttribute,
+        Sprite,
+        MeshBasicMaterial,MeshLambertMaterial,PointsMaterial,LineBasicMaterial,SpriteMaterial,MeshPhongMaterial,
+        Points,Mesh,Line,SkinnedMesh,
+        AmbientLight,SpotLight,PointLight,
+        Fog,
+        Vector3,Face3,
+        Group,
+        OrbitControls,
+        KeyframeTrack,AnimationClip,AnimationMixer,
+        Clock,
+        ObjectLoader,
+        Bone,Skeleton,SkeletonHelper,
+        Math:{degToRad},
+        Box3,
+        TextureLoader,CubeTextureLoader,
+        ShaderLib,
+        LinearFilter,
+        ShaderMaterial,
+        BackSide,
+        DirectionalLight,
+        DoubleSide,
+    }=THREE;
+
+    function main() {
+        const canvas = document.querySelector('#c');
+        const renderer = new WebGLRenderer({canvas});
+
+        const fov = 75;
+        const aspect = 2;  // the canvas default
+        const near = 0.1;
+        const far = 25;
+        const camera = new PerspectiveCamera(fov, aspect, near, far);
+        camera.position.z = 4;
+        camera.position.x = 1;
+        camera.position.y = 3;
+
+
+        const controls = new OrbitControls(camera, canvas);
+        controls.target.set(0, 0, 0);
+        controls.update();
+
+        const scene = new Scene();
+        scene.background = new Color('white');
+
+        function addLight(...pos) {
+            const color = 0xFFFFFF;
+            const intensity = 1;
+            const light = new DirectionalLight(color, intensity);
+            light.position.set(...pos);
+            scene.add(light);
+        }
+        addLight(-1, 2, 4);
+        addLight( 1, -1, -2);
+
+        const boxWidth = 1;
+        const boxHeight = 1;
+        const boxDepth = 1;
+        //const geometry = new BoxGeometry(boxWidth, boxHeight, boxDepth);
+        const geometry = new BufferGeometry();
+        //底面法线朝下
+        const vertices = new Float32Array( [
+            //立面
+            -1.0, -1.0,  1.0,
+            1.0, -1.0,  1.0,
+            1.0,  1.0,  1.0,
+
+            1.0,  1.0,  1.0,
+            -1.0,  1.0,  1.0,
+            -1.0, -1.0,  1.0,
+
+            //底面
+            1.0,  -1.0,  -1.0,
+            1.0, -1.0,  1.0,
+            -1.0, -1.0,  1.0,
+
+            -1.0, -1.0,  1.0,
+            -1.0,  -1.0,  -1.0,
+            1.0,  -1.0,  -1.0,
+        ] );
+
+        /*底面法线朝上*/
+        /*const vertices = new Float32Array( [
+            //顶面
+            -1.0, -1.0,  1.0,
+            1.0, -1.0,  1.0,
+            1.0,  1.0,  1.0,
+
+            1.0,  1.0,  1.0,
+            -1.0,  1.0,  1.0,
+            -1.0, -1.0,  1.0,
+
+            //底面
+            -1.0, -1.0,  1.0,
+            1.0, -1.0,  1.0,
+            1.0,  -1.0,  -1.0,
+
+            1.0,  -1.0,  -1.0,
+            -1.0,  -1.0,  -1.0,
+            -1.0, -1.0,  1.0,
+        ] );*/
+
+        geometry.attributes.position=new THREE.BufferAttribute( vertices, 3 );
+
+        function makeInstance(geometry, color, x, y, z) {
+            [THREE.BackSide, THREE.FrontSide].forEach((side,ind) => {
+                const material = new THREE.MeshBasicMaterial({
+                    color:color[ind],
+                    opacity: 0.5,
+                    transparent: true,
+                    side,
+                });
+
+                const cube = new THREE.Mesh(geometry, material);
+                scene.add(cube);
+
+                cube.position.set(x, y, z);
+            });
+        }
+
+
+        function hsl(h, s, l) {
+            return (new Color()).setHSL(h, s, l);
+        }
+
+        {
+            const d = 1.2;
+            makeInstance(geometry, [new Color(0,255,0),new Color(0,255,255)],  d,  d,  d);
+            makeInstance(geometry, [new Color(255,0,0),new Color(255,255,0)],  d,  d, -d);
+        }
+
+        function resizeRendererToDisplaySize(renderer) {
+            const canvas = renderer.domElement;
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+            const needResize = canvas.width !== width || canvas.height !== height;
+            if (needResize) {
+                renderer.setSize(width, height, false);
+            }
+            return needResize;
+        }
+
+        let renderRequested = false;
+
+        function render() {
+            renderRequested = undefined;
+
+            if (resizeRendererToDisplaySize(renderer)) {
+                const canvas = renderer.domElement;
+                camera.aspect = canvas.clientWidth / canvas.clientHeight;
+                camera.updateProjectionMatrix();
+            }
+
+            renderer.render(scene, camera);
+        }
+        render();
+
+        function requestRenderIfNotRequested() {
+            if (!renderRequested) {
+                renderRequested = true;
+                requestAnimationFrame(render);
+            }
+        }
+
+        controls.addEventListener('change', requestRenderIfNotRequested);
+        window.addEventListener('resize', requestRenderIfNotRequested);
+    }
+
+    main();
+</script>
+</body>
+</html>

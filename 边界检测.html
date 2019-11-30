@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>module 模块化</title>
+    <style>
+        html, body {margin: 0;height: 100%;}
+    </style>
+</head>
+<body>
+<script type="module">
+    import * as THREE from './build/three.module.js';
+    import { EffectComposer } from './jsm/postprocessing/EffectComposer.js';
+    import { RenderPass } from './jsm/postprocessing/RenderPass.js';
+    import { ShaderPass } from './jsm/postprocessing/ShaderPass.js';
+
+    let EdgeShader = {
+        uniforms: {
+            "tDiffuse": { type: "t", value: null },
+            "aspect": { type: "v2", value: new THREE.Vector2( 1024, 1024 ) },
+        },
+        vertexShader: `
+            /*自定义变量存储点位*/
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+            }
+        `,
+
+        fragmentShader: `
+            /*是一种通道，three.js 会自动上传*/
+            uniform sampler2D tDiffuse;
+            //纹理点位与模型点位的映射
+            varying vec2 vUv;
+            //比例？
+            uniform vec2 aspect;
+            /*纹理*/
+            vec2 texel = vec2(1.0 / aspect.x, 1.0 / aspect.y);
+            /*建立数组*/
+            mat3 G[2];
+            /*三维矩阵*/
+            const mat3 g0 = mat3(
+                1.0, 2.0, 1.0,
+                0.0, 0.0, 0.0,
+                -1.0, -2.0, -1.0
+            );
+            /*const mat3 g0 = 1.0/(2.0*sqrt(2.0)) * mat3(
+                1.0, sqrt(2.0), 1.0,
+                0.0, 0.0, 0.0,
+                -1.0, -sqrt(2.0), -1.0
+            );*/
+
+            const mat3 g1 = mat3(
+                1.0, 0.0, -1.0,
+                2.0, 0.0, -2.0,
+                1.0, 0.0, -1.0
+            );
+
+            /*const mat3 g1 = 1.0/(2.0*sqrt(2.0)) * mat3(
+                1.0, 0.0, -1.0,
+                sqrt(2.0), 0.0, -sqrt(2.0),
+                1.0, 0.0, -1.0
+            );*/
+
+            void main(void){
+                /*三维矩阵，存储了九个rgb 的向量长度*/
+                mat3 I;
+                /*长度为2，以浮点为元素的数组*/
+                float cnv[2];
+                /*样本*/
+                vec3 sample;
+
+                G[0] = g0;
+                G[1] = g1;
+
+                /* fetch the 3x3 neighbourhood and use the RGB vector's length as intensity value */
+                /* 获取3x3邻域并使用RGB向量的长度作为强度值 */
+                for (float i=0.0; i<3.0; i++){
+                    for (float j=0.0; j<3.0; j++) {
+                        //正常而言，第二参数有vUv 就够了
+                        //texture2D 得到的是由rgba 组成的矢量
+                        //vUv + texel * vec2(i-1.0,j-1.0) 是二维矢量的相加
+                        //vec2(i-1.0,j-1.0) 其中的1.0 是以当前点为中心取周围八点
+                        //texel=1/512，会让vUv 的增值变得很小。注 vUv 是0-1 的区间
+                        sample = texture2D( tDiffuse, vUv + texel * vec2(i-1.0,j-1.0) ).rgb;
+                        //向三维矩阵立塞入rgb 的长度
+                        I[int(i)][int(j)] = length(sample);
+                    }
+
+                    /* calculate the convolution values for all the masks */
+                    /*计算所有掩模的卷积值*/
+                    for (int i=0; i<2; i++) {
+                        /* i 影响的是g */
+                        // dot((1.0, 2.0, 1.0), I[0])
+                        float dp3 = dot(G[i][0], I[0]) + dot(G[i][1], I[1]) + dot(G[i][2], I[2]);
+                        cnv[i] = dp3 * dp3;
+                    }
+                    //sqrt 取的是一单值
+                    //vec4(n)=vec4(n,n,n,1)
+                    gl_FragColor = vec4(sqrt(cnv[0]*cnv[0]+cnv[1]*cnv[1]));
+                }
+            }
+        `
+    };
+
+    let camera, scene, renderer, composer;
+
+
+    let bgTexture = new THREE.TextureLoader().load( './textures/758px-Canestra_di_frutta_(Caravaggio).jpg', function () {
+
+        init();
+        onWindowResize();
+    } );
+
+    function init() {
+        renderer = new THREE.WebGLRenderer();
+        renderer.setPixelRatio( window.devicePixelRatio );
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        document.body.appendChild( renderer.domElement );
+
+        camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 1, 1000 );
+        camera.position.z = 400;
+
+        scene = new THREE.Scene();
+        scene.background = bgTexture;
+
+        composer = new EffectComposer( renderer );
+        composer.addPass( new RenderPass( scene, camera ) );
+
+        let edgeShader = new ShaderPass( EdgeShader );
+        composer.addPass( edgeShader );
+
+        window.addEventListener( 'resize', onWindowResize, false );
+
+    }
+
+    function onWindowResize() {
+        //canvas 宽高比
+        let canvasAspect = window.innerWidth / window.innerHeight;
+        //图片宽高比
+        let imageAspect = bgTexture.image ? bgTexture.image.width / bgTexture.image.height : 1;
+        //canvas宽高比 ：图片宽高比
+        let aspect = imageAspect / canvasAspect;
+        //如果图片 比canvas 长，图片以百分比的方式偏移多出来的一半
+        bgTexture.offset.x = aspect > 1 ? ( 1 - 1 / aspect ) / 2 : 0;
+        //如果图片 比canvas 长，图片横向复制
+        bgTexture.repeat.x = aspect > 1 ? 1 / aspect : 1;
+        //同理
+        bgTexture.offset.y = aspect > 1 ? 0 : ( 1 - aspect ) / 2;
+        bgTexture.repeat.y = aspect > 1 ? 1 : aspect;
+
+
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        composer.setSize( window.innerWidth, window.innerHeight );
+
+        composer.render();
+
+    }
+
+
+</script>
+
+</body>
+</html>
